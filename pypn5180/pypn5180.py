@@ -132,6 +132,11 @@ class PN5180(pypn5180hal.PN5180_HIL):
             return -1
 
         self.sendData(8, command)
+
+        # TODO: wait a bit and check for the RX_SOF flag, which means the tag
+        # started responding. Then wait for the RX flag which means it's done responding
+        # if the tag is removed before RX is complete then we will never see RX flag, so protect from that scenario with a simple timeout
+
         self._usDelay(10000)  # 10 ms
         nbBytes = self.getRxStatusNbBytesReceived()
         response = self.readData(nbBytes)

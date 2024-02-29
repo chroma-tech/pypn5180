@@ -44,7 +44,7 @@ class SpiMicropython:
             pass
 
         self.cs.value(0)
-        time.sleep(0.005)
+        time.sleep(0.001)
         self.device.write_readinto(txdata, rxdata)
         self.cs.value(1)
 
@@ -268,13 +268,13 @@ class PN5180_HIL(object):
         # Send [cmd][parametes]
         # print('Sending parameters %r' %parameters)
         parameters.insert(0, cmd)
-        dir(self.spi)
         self.spi.xfer(parameters)
         if self.debug:
             print("SPI send frame: %r" % (parameters))
         if responseLen == 0:
             return []
-        self._usDelay(5000)  # TODO : Manage busy signal instead of hard sleep
+        # self._usDelay(5000)  # TODO : Manage busy signal instead of hard sleep
+        # xfer now waits for busy to clear so no need to wait here
         return self._getResponse(responseLen)
 
     # FIXME: python2/3 support, better way ?
