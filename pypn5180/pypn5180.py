@@ -122,6 +122,7 @@ class PN5180(pypn5180hal.PN5180_HIL):
     """
 
     def transactionIsoIec15693(self, command):
+        self.clearIrqStatus()
         self.setSystemCommand("COMMAND_TRANSCEIVE_SET")
 
         # Check RF_STATUS TRANSCEIVE_STATE value
@@ -133,13 +134,18 @@ class PN5180(pypn5180hal.PN5180_HIL):
 
         self.sendData(8, command)
 
-        # TODO: wait a bit and check for the RX_SOF flag, which means the tag
-        # started responding. Then wait for the RX flag which means it's done responding
-        # if the tag is removed before RX is complete then we will never see RX flag, so protect from that scenario with a simple timeout
+        # wait for RX to complete
+        now = time.time()
+        irq_status = self.getIrqStatus()
+        while (
+            irq_status & self.IRQ_STATUS["RX_IRQ_STAT"] == 0 and time.time() - now < 0.1
+        ):
+            irq_status = self.getIrqStatus()
+            self._usDelay(1000)
 
-        self._usDelay(10000)  # 10 ms
         nbBytes = self.getRxStatusNbBytesReceived()
         response = self.readData(nbBytes)
+
         if response:
             flags = response[0]
             data = response[1:]
@@ -160,6 +166,12 @@ class PN5180(pypn5180hal.PN5180_HIL):
     def getRxStatusNbBytesReceived(self):
         regvalue = self.readRegister(self.REG_ADDR["RX_STATUS"])
         return regvalue & 0x1FF
+
+    def getIrqStatus(self):
+        return self.readRegister(self.REG_ADDR["IRQ_STATUS"])
+
+    def clearIrqStatus(self, mask=0xFF):
+        self.writeRegister(self.REG_ADDR["IRQ_CLEAR"], mask)
 
     def setSystemCommand(self, mode):
         self.writeRegisterAndMask(

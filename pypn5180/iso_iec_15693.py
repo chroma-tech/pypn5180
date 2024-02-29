@@ -25,6 +25,7 @@ class iso_iec_15693(object):
         "LOCK_DSFID": 0x2A,
         "GET_SYSTEM_INFORMATION": 0x2B,
         "GET_MULTIPLE_BLOCK_SECURITY_STATUS": 0x2C,
+        "GET_SYSTEM_INFORMATION_EXT": 0x3B,
         "CUSTOM_READ_SINGLE": 0xC0,
         "CUSTOM_WRITE_SINGLE": 0xC1,
         "CUSTOM_LOCK_BLOCK": 0xC2,
@@ -93,12 +94,15 @@ class iso_iec_15693(object):
         frame.insert(1, self.CMD_CODE["INVENTORY"])
         frame.insert(2, 0x00)  # mask length
         flags, data = self.pn5180.transactionIsoIec15693(frame)
-        error = self.getError(flags, data)
-        return data, error
+        if flags != 0:
+            error = self.getError(flags, data)
+            return "", error
+        format, uid = data[0], data[1:9]
+        return uid, ""
 
     def stayQuietCmd(self, uid):
         frame = []
-        frame.insert(0, self.flags)
+        frame.insert(0, self.flags | 0x20)
         frame.insert(1, self.CMD_CODE["STAY_QUIET"])
         frame.extend(uid)
 
@@ -107,8 +111,8 @@ class iso_iec_15693(object):
         frame.insert(0, self.flags)
         frame.insert(1, self.CMD_CODE["READ_SINGLE_BLOCK"])
         if uid is not []:
+            frame[0] |= 0x20
             frame.extend(uid)
-            # TODO : Add uid bit in flags
         frame.append(blockNumber)
         flags, data = self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
@@ -127,8 +131,8 @@ class iso_iec_15693(object):
         frame.insert(0, self.flags)
         frame.insert(1, self.CMD_CODE["WRITE_SINGLE_BLOCK"])
         if uid is not []:
+            frame[0] |= 0x20
             frame.extend(uid)
-            # TODO : Add uid bit in flags
         frame.append(blockNumber)
         frame.extend(data)
         flags, data = self.pn5180.transactionIsoIec15693(frame)
@@ -141,6 +145,7 @@ class iso_iec_15693(object):
         frame.insert(0, self.flags)
         frame.insert(1, self.CMD_CODE["LOCK_BLOCK"])
         if uid is not []:
+            frame[0] |= 0x20
             frame.extend(uid)
         frame.extend(numberOfBlocks)
         flags, data = self.pn5180.transactionIsoIec15693(frame)
@@ -152,6 +157,7 @@ class iso_iec_15693(object):
         frame.insert(0, self.flags)
         frame.insert(1, self.CMD_CODE["READ_MULTIPLE_BLOCKS"])
         if uid is not []:
+            frame[0] |= 0x20
             frame.extend(uid)
         frame.extend(firstBlockNumber)
         frame.extend(numberOfBlocks)
@@ -166,7 +172,7 @@ class iso_iec_15693(object):
     def selectCmd(self, uid):
         #'25'
         frame = []
-        frame.insert(0, self.flags)
+        frame.insert(0, self.flags | 0x20)
         frame.insert(1, self.CMD_CODE["SELECT"])
         frame.extend(uid)
         flags, data = self.pn5180.transactionIsoIec15693(frame)
@@ -179,6 +185,7 @@ class iso_iec_15693(object):
         frame.insert(0, self.flags)
         frame.insert(1, self.CMD_CODE["RESET_READY"])
         if uid is not []:
+            frame[0] |= 0x20
             frame.extend(uid)
         flags, data = self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
@@ -190,6 +197,7 @@ class iso_iec_15693(object):
         frame.insert(0, self.flags)
         frame.insert(1, self.CMD_CODE["WRITE_AFI"])
         if uid is not []:
+            frame[0] |= 0x20
             frame.extend(uid)
         frame.extend(afi)
         flags, data = self.pn5180.transactionIsoIec15693(frame)
@@ -202,6 +210,7 @@ class iso_iec_15693(object):
         frame.insert(0, self.flags)
         frame.insert(1, self.CMD_CODE["LOCK_AFI"])
         if uid is not []:
+            frame[0] |= 0x20
             frame.extend(uid)
         flags, data = self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
@@ -213,6 +222,7 @@ class iso_iec_15693(object):
         frame.insert(0, self.flags)
         frame.insert(1, self.CMD_CODE["WRITE_DSFID"])
         if uid is not []:
+            frame[0] |= 0x20
             frame.extend(uid)
         frame.extend(dsfid)
         flags, data = self.pn5180.transactionIsoIec15693(frame)
@@ -225,6 +235,7 @@ class iso_iec_15693(object):
         frame.insert(0, self.flags)
         frame.insert(1, self.CMD_CODE["LOCK_DSFID"])
         if uid is not []:
+            frame[0] |= 0x20
             frame.extend(uid)
         flags, data = self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
@@ -236,6 +247,37 @@ class iso_iec_15693(object):
         frame.insert(0, self.flags)
         frame.insert(1, self.CMD_CODE["GET_SYSTEM_INFORMATION"])
         if uid is not []:
+            frame[0] |= 0x20
+            frame.extend(uid)
+        flags, data = self.pn5180.transactionIsoIec15693(frame)
+        if flags != 0:
+            error = self.getError(flags, data)
+            return "", error
+
+        dsfid = afi = num_blocks = block_size = 0
+        info_flags = data[1]
+
+        p = 10
+        if info_flags & 0x1:
+            dsfid = data[p]
+            p += 1
+        if info_flags & 0x2:
+            afi = data[p]
+            p += 1
+        if info_flags & 0x4:
+            num_blocks = data[p] + 1
+            block_size = data[p + 1] + 1
+            p += 2
+
+        return (dsfid, afi, num_blocks, block_size), ""
+
+    def getSystemInformationExtCmd(self, uid=[]):
+        frame = []
+        frame.insert(0, self.flags)
+        frame.insert(1, self.CMD_CODE["GET_SYSTEM_INFORMATION_EXT"])
+        frame.insert(2, 0x1F)  # info flags
+        if uid is not []:
+            frame[0] |= 0x20
             frame.extend(uid)
         flags, data = self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
@@ -249,6 +291,7 @@ class iso_iec_15693(object):
         frame.insert(0, self.flags)
         frame.insert(1, self.CMD_CODE["GET_MULTIPLE_BLOCK_SECURITY_STATUS"])
         if uid is not []:
+            frame[0] |= 0x20
             frame.extend(uid)
         frame.append(firstBlockNumber)
         frame.append(numberOfBlocks)
@@ -264,6 +307,7 @@ class iso_iec_15693(object):
         frame.insert(1, cmdCode)
         frame.insert(2, mfCode)
         if data is not []:
+            frame[0] |= 0x20
             frame.extend(data)
         flags, data = self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
@@ -279,6 +323,7 @@ class iso_iec_15693(object):
         frame.insert(1, self.CMD_CODE["CUSTOM_READ_SINGLE"])
         frame.insert(2, mfCode)
         if uid is not []:
+            frame[0] |= 0x20
             frame.extend(uid)
         if len(firstBlockNumber) == 1:
             frame.extend(0)
@@ -298,6 +343,9 @@ class iso_iec_15693(object):
         frame = []
         frame.insert(0, self.flags)
         frame.insert(1, cmdCode)
+        if uid is not []:
+            frame[0] |= 0x20
+            frame.extend(uid)
         frame.extend(map(ord, data))
         flags, data = self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)

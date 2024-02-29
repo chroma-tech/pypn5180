@@ -152,6 +152,8 @@ class PN5180_HIL(object):
 
     REG_ADDR = {
         "SYSTEM_CONFIG": 0x00,
+        "IRQ_STATUS": 0x02,
+        "IRQ_CLEAR": 0x03,
         "RX_STATUS": 0x13,
         "CRC_TX_CONFIG": 0x19,
         "RF_STATUS": 0x1D,
@@ -241,6 +243,13 @@ class PN5180_HIL(object):
         "EEPROM_VERSION": 0x14,  # Size: 2 bytes
     }
 
+    IRQ_STATUS = {
+        "RX_IRQ_STAT": 1 << 0,
+        "TX_IRQ_STAT": 1 << 1,
+        "IDLE_IRQ_STAT": 1 << 2,
+        "RX_SOF_DET_IRQ_STAT": 1 << 14,
+    }
+
     """
     Debug values : PN5180_HIL, PN5180
     """
@@ -319,8 +328,7 @@ class PN5180_HIL(object):
             contentList = list(binascii.unhexlify(content))
             parameters.extend(contentList.reverse())
         elif type(content) is int:
-            listBytes = list(struct.pack("<I", content))
-            parameters.extend(map(ord, listBytes))
+            parameters.extend(self._toList(content))
         if self.debug:
             print("WriteReg: %r <=> %r" % (parameters, content))
         return self._sendCommand(self.CMD["WRITE_REGISTER"], parameters, 0)
