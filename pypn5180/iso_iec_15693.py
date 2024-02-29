@@ -147,7 +147,7 @@ class iso_iec_15693(object):
         if uid is not []:
             frame[0] |= 0x20
             frame.extend(uid)
-        frame.extend(numberOfBlocks)
+        frame.append(numberOfBlocks)
         flags, data = self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
         return data, error
@@ -155,12 +155,12 @@ class iso_iec_15693(object):
     def readMultipleBlocksCmd(self, firstBlockNumber, numberOfBlocks, uid=[]):
         frame = []
         frame.insert(0, self.flags)
-        frame.insert(1, self.CMD_CODE["READ_MULTIPLE_BLOCKS"])
+        frame.insert(1, self.CMD_CODE["READ_MULTIPLE_BLOCK"])
         if uid is not []:
             frame[0] |= 0x20
             frame.extend(uid)
-        frame.extend(firstBlockNumber)
-        frame.extend(numberOfBlocks)
+        frame.append(firstBlockNumber)
+        frame.append(numberOfBlocks)
         flags, data = self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
         return data, error
@@ -255,9 +255,9 @@ class iso_iec_15693(object):
             return "", error
 
         dsfid = afi = num_blocks = block_size = 0
-        info_flags = data[1]
+        info_flags = data[0]
 
-        p = 10
+        p = 9
         if info_flags & 0x1:
             dsfid = data[p]
             p += 1
@@ -266,10 +266,13 @@ class iso_iec_15693(object):
             p += 1
         if info_flags & 0x4:
             num_blocks = data[p] + 1
-            block_size = data[p + 1] + 1
+            block_size = (data[p + 1] & 0x1F) + 1
             p += 2
 
-        return (dsfid, afi, num_blocks, block_size), ""
+        TagInfo = collections.namedtuple(
+            "TagInfo", ["dsfid", "afi", "num_blocks", "block_size"]
+        )
+        return TagInfo(dsfid, afi, num_blocks, block_size), ""
 
     def getSystemInformationExtCmd(self, uid=[]):
         frame = []

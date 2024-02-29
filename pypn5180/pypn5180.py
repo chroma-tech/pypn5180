@@ -129,19 +129,19 @@ class PN5180(pypn5180hal.PN5180_HIL):
         # must be WAIT_TRANSMIT
         state = self.getRfStatusTransceiveState()
         if state != "WAIT_TRANSMIT":
-            print("transactionIsoIec15693 Error in RF state: %s" % state)
-            return -1
+            raise Exception("Error in RF state")
 
         self.sendData(8, command)
 
         # wait for RX to complete
-        now = time.time()
+        deadline = time.ticks_add(time.ticks_ms(), 100)
         irq_status = self.getIrqStatus()
         while (
-            irq_status & self.IRQ_STATUS["RX_IRQ_STAT"] == 0 and time.time() - now < 0.1
+            irq_status & self.IRQ_STATUS["RX_IRQ_STAT"] == 0
+            and time.ticks_diff(deadline, time.ticks_ms()) > 0
         ):
             irq_status = self.getIrqStatus()
-            self._usDelay(1000)
+            time.sleep_ms(1)
 
         nbBytes = self.getRxStatusNbBytesReceived()
         response = self.readData(nbBytes)
