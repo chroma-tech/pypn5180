@@ -49,9 +49,9 @@ class iso_iec_15693(object):
 
     def __init__(self, pn5180):
         self.pn5180 = pn5180
-        print("PN5180 Self test:")
-        self.pn5180.selfTest()
-        print("\nConfiguring device for ISO IEC 15693")
+        # print("PN5180 Self test:")
+        # self.pn5180.selfTest()
+        # print("\nConfiguring device for ISO IEC 15693")
         self.pn5180.configureIsoIec15693Mode()
 
         # Set default frame flags byte:
@@ -94,6 +94,8 @@ class iso_iec_15693(object):
         frame.insert(1, self.CMD_CODE["INVENTORY"])
         frame.insert(2, 0x00)  # mask length
         flags, data = self.pn5180.transactionIsoIec15693(frame)
+        if flags == 0 and len(data) < 9:
+            flags = 0xFF
         if flags != 0:
             error = self.getError(flags, data)
             return "", error
@@ -165,9 +167,19 @@ class iso_iec_15693(object):
         error = self.getError(flags, data)
         return data, error
 
-    def writeMultipleBlocksCmd(self):
-        pass
-        #'24'
+    def writeMultipleBlocksCmd(self, blockNumber, numBlocks, data, uid=[]):
+        frame = []
+        frame.insert(0, self.flags)
+        frame.insert(1, self.CMD_CODE["WRITE_MULTIPLE_BLOCK"])
+        if uid is not []:
+            frame[0] |= 0x20
+            frame.extend(uid)
+        frame.append(blockNumber)
+        frame.append(numBlocks)
+        frame.extend(data)
+        flags, data = self.pn5180.transactionIsoIec15693(frame)
+        error = self.getError(flags, data)
+        return data, error
 
     def selectCmd(self, uid):
         #'25'
