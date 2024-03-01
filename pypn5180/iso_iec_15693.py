@@ -125,10 +125,6 @@ class iso_iec_15693(object):
 
     def writeSingleBlockCmd(self, blockNumber, data, uid=[]):
         #'21'
-
-        if len(data) is not 8:
-            print("WARNING, data block length must be 8 bytes")
-
         frame = []
         frame.insert(0, self.flags)
         frame.insert(1, self.CMD_CODE["WRITE_SINGLE_BLOCK"])
@@ -177,7 +173,13 @@ class iso_iec_15693(object):
         frame.append(blockNumber)
         frame.append(numBlocks)
         frame.extend(data)
+
+        print(
+            f"WMB CMD. Offset block: {blockNumber} Num blocks: {numBlocks}. Data len: {len(data)}"
+        )
+
         flags, data = self.pn5180.transactionIsoIec15693(frame)
+        print(f"Return from write. Flags: {flags}. Data: {data}")
         error = self.getError(flags, data)
         return data, error
 

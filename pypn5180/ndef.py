@@ -304,6 +304,9 @@ class NdefMessage(object):
         self._verify_chunks()
         self._verify_android_specific()
 
+    def fix(self) -> None:
+        self._fix_begin_end()
+
     def to_buffer(self) -> bytes:
         return b"".join(r.to_buffer() for r in self.records)
 
@@ -343,6 +346,14 @@ class NdefMessage(object):
                 raise InvalidNdefMessage(
                     "first record has no type, but is also not empty or unknown"
                 )
+
+    def _fix_begin_end(self) -> None:
+        self.records[0].flags.message_begin = True
+        self.records[-1].flags.message_end = True
+        for r in self.records[1:]:
+            r.flags.message_begin = False
+        for r in self.records[:-1]:
+            r.flags.message_end = False
 
 
 def new_message(*record_defs) -> NdefMessage:
