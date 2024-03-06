@@ -261,7 +261,7 @@ class PN5180_HIL(object):
 
         except IOError as exc:
             print("Error opening SPI device : %r" % exc)
-            sys.exit()
+            raise
 
     def _usDelay(self, useconds):
         time.sleep(useconds / 1000000.0)

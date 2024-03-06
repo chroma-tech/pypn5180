@@ -98,7 +98,7 @@ class iso_iec_15693(object):
             flags = 0xFF
         if flags != 0:
             error = self.getError(flags, data)
-            return "", error
+            return None, error
         format, uid = data[0], data[1:9]
         return uid, ""
 

@@ -1,0 +1,21 @@
+{
+  "urls": [
+    [
+      "__init__.py",
+      "github:chroma-tech/pypn5180/blob/master/pypn5180/__init__.py"
+    ],
+    [
+      "pypn5180.py",
+      "github:chroma-tech/pypn5180/blob/master/pypn5180/pypn5180.py"
+    ],
+    [
+      "pypn5180hal.py",
+      "github:chroma-tech/pypn5180/blob/master/pypn5180/pypn5180hal.py"
+    ],
+    [
+      "iso_iec_15693.py",
+      "github:chroma-tech/pypn5180/blob/master/pypn5180/iso_iec_15693.py"
+    ]
+  ],
+  "version": "0.1"
+}
