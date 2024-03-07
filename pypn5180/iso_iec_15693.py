@@ -49,10 +49,6 @@ class iso_iec_15693(object):
 
     def __init__(self, pn5180):
         self.pn5180 = pn5180
-        # print("PN5180 Self test:")
-        # self.pn5180.selfTest()
-        # print("\nConfiguring device for ISO IEC 15693")
-        self.pn5180.configureIsoIec15693Mode()
 
         # Set default frame flags byte:
         # [Extract From ISO_IEC_15693]
@@ -65,6 +61,9 @@ class iso_iec_15693(object):
         # Bit 4 Protocol          0 No protocol format extension
         #       Extension_flag    1 Protocol format is extended. Reserved for future use
         self.flags = 0x02
+
+    async def start(self):
+        await self.pn5180.configureIsoIec15693Mode()
 
     """
     configureFlags(self, flags)

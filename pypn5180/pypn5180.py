@@ -1,6 +1,7 @@
 import time
 import struct
 import binascii
+import asyncio
 from . import pypn5180hal
 
 
@@ -24,8 +25,8 @@ class PN5180(pypn5180hal.PN5180_HIL):
     response : 2 bytes 
     """
 
-    def getFirmwareVersion(self):
-        firmwareVersion = self.readEeprom(self.EEPROM_ADDR["FIRMWARE_VERSION"], 2)
+    async def getFirmwareVersion(self):
+        firmwareVersion = await self.readEeprom(self.EEPROM_ADDR["FIRMWARE_VERSION"], 2)
         return self._toInt16(firmwareVersion)
 
     """
@@ -33,8 +34,8 @@ class PN5180(pypn5180hal.PN5180_HIL):
     response : 2 bytes
     """
 
-    def getProductVersion(self):
-        productVersion = self.readEeprom(self.EEPROM_ADDR["PRODUCT_VERSION"], 2)
+    async def getProductVersion(self):
+        productVersion = await self.readEeprom(self.EEPROM_ADDR["PRODUCT_VERSION"], 2)
         return self._toInt16(productVersion)
 
     """
@@ -42,8 +43,8 @@ class PN5180(pypn5180hal.PN5180_HIL):
     response : 2 bytes 
     """
 
-    def getEepromVersion(self):
-        eepromVersion = self.readEeprom(self.EEPROM_ADDR["EEPROM_VERSION"], 2)
+    async def getEepromVersion(self):
+        eepromVersion = await self.readEeprom(self.EEPROM_ADDR["EEPROM_VERSION"], 2)
         return self._toInt16(eepromVersion)
 
     """
@@ -51,8 +52,8 @@ class PN5180(pypn5180hal.PN5180_HIL):
     response : 2 bytes 
     """
 
-    def getDieIdentifier(self):
-        dieIdentifier = self.readEeprom(self.EEPROM_ADDR["DIE_IDENTIFIER"], 16)
+    async def getDieIdentifier(self):
+        dieIdentifier = await self.readEeprom(self.EEPROM_ADDR["DIE_IDENTIFIER"], 16)
         return self._toHex(dieIdentifier)
 
     """
@@ -60,12 +61,12 @@ class PN5180(pypn5180hal.PN5180_HIL):
     Display PN5180 chip versions (HW, SW)
     """
 
-    def selfTest(self):
+    async def selfTest(self):
         # Get firmware version from EEPROM
-        firmwareVersion = self.getFirmwareVersion()
-        productVersion = self.getProductVersion()
-        eepromVersion = self.getEepromVersion()
-        dieIdentifier = self.getDieIdentifier()
+        firmwareVersion = await self.getFirmwareVersion()
+        productVersion = await self.getProductVersion()
+        eepromVersion = await self.getEepromVersion()
+        dieIdentifier = await self.getDieIdentifier()
         print(" Firmware version: %#x" % firmwareVersion)
         print(" Product Version : %#x" % productVersion)
         print(" EEPROM version  : %#x" % eepromVersion)
@@ -76,15 +77,15 @@ class PN5180(pypn5180hal.PN5180_HIL):
     Dumps and display all PN5180 registers
     """
 
-    def dumpRegisters(self):
+    async def dumpRegisters(self):
         print("======= Register Dump =======")
         for addr in range(0, self.MAX_REGISTER_ADDR):
-            registerValue = self.readRegister(addr)
+            registerValue = await self.readRegister(addr)
             print(
                 "%s %#x = %#x (%r)"
                 % (self.REGISTER_NAME[addr], addr, registerValue, bin(registerValue))
             )
-        registerValue = self.readRegister(0x39)
+        registerValue = await self.readRegister(0x39)
         print(
             "%s %#x = %#x (%r)"
             % (self.REGISTER_NAME[0x39], 0x39, registerValue, bin(registerValue))
@@ -96,11 +97,11 @@ class PN5180(pypn5180hal.PN5180_HIL):
     Soft reset, configure default parameters for Iso IEC 15693 and enable RF
     """
 
-    def configureIsoIec15693Mode(self):
+    async def configureIsoIec15693Mode(self):
         # TODO :
         #   - do a clean interface selector, not hard coded
         #   - Configure CRC registers
-        self.softwareReset()
+        await self.softwareReset()
 
         # RF_CFG = {
         # 'TX_ISO_15693_ASK100':0x0D, # 26 kbps
@@ -108,13 +109,13 @@ class PN5180(pypn5180hal.PN5180_HIL):
         # 'TX_ISO_15693_ASK10':0x0E,  # 26 kbps
         # 'RX_ISO_15693_53KBPS':0x8E  # 53 kbps
         #  }
-        self.loadRfConfig(
+        await self.loadRfConfig(
             self.RF_CFG["TX_ISO_15693_ASK100"], self.RF_CFG["RX_ISO_15693_26KBPS"]
         )
-        self.rfOn(self.RF_ON_MODE["STANDARD"])
+        await self.rfOn(self.RF_ON_MODE["STANDARD"])
 
         # Set SYSTEM regsiter state machine to transceive
-        self.setSystemCommand("COMMAND_IDLE_SET")
+        await self.setSystemCommand("COMMAND_IDLE_SET")
 
     """
     transactionIsoIec15693(cmd)
@@ -122,43 +123,43 @@ class PN5180(pypn5180hal.PN5180_HIL):
     """
 
     async def transactionIsoIec15693(self, command):
-        self.clearIrqStatus()
-        self.setSystemCommand("COMMAND_TRANSCEIVE_SET")
+        await self.clearIrqStatus()
+        await self.setSystemCommand("COMMAND_TRANSCEIVE_SET")
 
         # Check RF_STATUS TRANSCEIVE_STATE value
         # must be WAIT_TRANSMIT
-        state = self.getRfStatusTransceiveState()
+        state = await self.getRfStatusTransceiveState()
         if state != "WAIT_TRANSMIT":
             raise Exception("Error in RF state")
 
-        self.sendData(8, command)
+        await self.sendData(8, command)
 
         # wait for RX to start with a shorter timeout
         deadline = time.ticks_add(time.ticks_ms(), 1)
-        irq_status = self.getIrqStatus()
+        irq_status = await self.getIrqStatus()
         while (
             irq_status & self.IRQ_STATUS["RX_SOF_DET_IRQ_STAT"] == 0
         ) and time.ticks_diff(deadline, time.ticks_ms()) > 0:
-            irq_status = self.getIrqStatus()
-            time.sleep_ms(1)
+            irq_status = await self.getIrqStatus()
+            await asyncio.sleep(0.001)
 
         # if RX didn't start, bail early
         if irq_status & self.IRQ_STATUS["RX_SOF_DET_IRQ_STAT"] == 0:
-            self.setSystemCommand("COMMAND_IDLE_SET")
+            await self.setSystemCommand("COMMAND_IDLE_SET")
             return 0xFF, []
 
         # wait for RX to complete
         deadline = time.ticks_add(time.ticks_ms(), 50)
-        irq_status = self.getIrqStatus()
+        irq_status = await self.getIrqStatus()
         while (
             irq_status & self.IRQ_STATUS["RX_IRQ_STAT"] == 0
             and time.ticks_diff(deadline, time.ticks_ms()) > 0
         ):
-            irq_status = self.getIrqStatus()
-            time.sleep_ms(1)
+            irq_status = await self.getIrqStatus()
+            await asyncio.sleep(0.001)
 
-        nbBytes = self.getRxStatusNbBytesReceived()
-        response = self.readData(nbBytes)
+        nbBytes = await self.getRxStatusNbBytesReceived()
+        response = await self.readData(nbBytes)
 
         if response:
             flags = response[0]
@@ -168,39 +169,39 @@ class PN5180(pypn5180hal.PN5180_HIL):
             flags = 0xFF
             data = []
 
-        self.setSystemCommand("COMMAND_IDLE_SET")
+        await self.setSystemCommand("COMMAND_IDLE_SET")
 
         return flags, data
 
-    def getRfStatusTransceiveState(self):
-        regvalue = self.readRegister(self.REG_ADDR["RF_STATUS"])
+    async def getRfStatusTransceiveState(self):
+        regvalue = await self.readRegister(self.REG_ADDR["RF_STATUS"])
         transceiveState = (regvalue >> 24) & 0x3
         return self.RF_STATUS_TRANSCEIVE_STATE[transceiveState]
 
-    def getRxStatusNbBytesReceived(self):
-        regvalue = self.readRegister(self.REG_ADDR["RX_STATUS"])
+    async def getRxStatusNbBytesReceived(self):
+        regvalue = await self.readRegister(self.REG_ADDR["RX_STATUS"])
         return regvalue & 0x1FF
 
-    def getIrqStatus(self):
-        return self.readRegister(self.REG_ADDR["IRQ_STATUS"])
+    async def getIrqStatus(self):
+        return await self.readRegister(self.REG_ADDR["IRQ_STATUS"])
 
-    def clearIrqStatus(self, mask=0xFF):
-        self.writeRegister(self.REG_ADDR["IRQ_CLEAR"], mask)
+    async def clearIrqStatus(self, mask=0xFF):
+        await self.writeRegister(self.REG_ADDR["IRQ_CLEAR"], mask)
 
-    def setSystemCommand(self, mode):
-        self.writeRegisterAndMask(
+    async def setSystemCommand(self, mode):
+        await self.writeRegisterAndMask(
             self.REG_ADDR["SYSTEM_CONFIG"], self.SYSTEM_CONFIG["COMMAND_CLR"]
         )
-        self.writeRegisterOrMask(
+        await self.writeRegisterOrMask(
             self.REG_ADDR["SYSTEM_CONFIG"], self.SYSTEM_CONFIG[mode]
         )
 
-    def softwareReset(self):
-        self.writeRegisterOrMask(
+    async def softwareReset(self):
+        await self.writeRegisterOrMask(
             self.REG_ADDR["SYSTEM_CONFIG"], self.SYSTEM_CONFIG["RESET_SET"]
         )
-        self._usDelay(50000)  # 50ms
-        self.writeRegisterAndMask(
+        await asyncio.sleep(0.05)
+        await self.writeRegisterAndMask(
             self.REG_ADDR["SYSTEM_CONFIG"], self.SYSTEM_CONFIG["RESET_CLR"]
         )
-        self._usDelay(50000)  # 50ms
+        await asyncio.sleep(0.05)

@@ -2,6 +2,7 @@ import time
 import struct
 import binascii
 import sys
+import asyncio
 
 if sys.version_info[0] < 3:
     PY_VERSION = 2
@@ -36,7 +37,7 @@ class SpiMicropython:
         else:
             self.device = SPI(id, baudrate=baudrate, sck=sck, mosi=mosi, miso=miso)
 
-    def xfer(self, xfert_data):
+    async def xfer(self, xfert_data):
         txdata = bytearray(bytes(xfert_data))
         rxdata = bytearray(len(txdata))
 
@@ -44,7 +45,7 @@ class SpiMicropython:
             pass
 
         self.cs.value(0)
-        time.sleep(0.001)
+        await asyncio.sleep(0.001)
         self.device.write_readinto(txdata, rxdata)
         self.cs.value(1)
 
@@ -58,7 +59,9 @@ class SpiSpidev:
         self.device = spidev.SpiDev()
         self.device.open(bus, device)
         self.device.max_speed_hz = speed
-        self.xfer = self.device.xfer
+
+    async def xfer(self, xfert_data):
+        self.device.xfer(xfert_data)
 
 
 class SpiFtdi:
@@ -74,7 +77,7 @@ class SpiFtdi:
         self.device.configure(ftdi_devid)
         self.slave = self.device.get_port(cs=0, freq=speed, mode=0)
 
-    def xfer(self, xfert_data):
+    async def xfer(self, xfert_data):
         data = bytearray(bytes(xfert_data))
         read_buf = self.slave.exchange(data, duplex=True)
         return read_buf
@@ -263,28 +266,23 @@ class PN5180_HIL(object):
             print("Error opening SPI device : %r" % exc)
             raise
 
-    def _usDelay(self, useconds):
-        time.sleep(useconds / 1000000.0)
-
-    def _getResponse(self, responseLen):
+    async def _getResponse(self, responseLen):
         # Send 0xFF bytes to get response bytes if any
         if responseLen != 0:
-            return self.spi.xfer([0xFF] * responseLen)
+            return await self.spi.xfer([0xFF] * responseLen)
         else:
             return []
 
-    def _sendCommand(self, cmd, parameters, responseLen=0):
+    async def _sendCommand(self, cmd, parameters, responseLen=0):
         # Send [cmd][parametes]
         # print('Sending parameters %r' %parameters)
         parameters.insert(0, cmd)
-        self.spi.xfer(parameters)
+        await self.spi.xfer(parameters)
         if self.debug:
             print("SPI send frame: %r" % (parameters))
         if responseLen == 0:
             return []
-        # self._usDelay(5000)  # TODO : Manage busy signal instead of hard sleep
-        # xfer now waits for busy to clear so no need to wait here
-        return self._getResponse(responseLen)
+        return await self._getResponse(responseLen)
 
     # FIXME: python2/3 support, better way ?
     def _toList(self, num32):
@@ -321,7 +319,7 @@ class PN5180_HIL(object):
     response : -
     """
 
-    def writeRegister(self, address, content):
+    async def writeRegister(self, address, content):
         parameters = []
         parameters.insert(0, address)
         if type(content) is str:
@@ -331,7 +329,7 @@ class PN5180_HIL(object):
             parameters.extend(self._toList(content))
         if self.debug:
             print("WriteReg: %r <=> %r" % (parameters, content))
-        return self._sendCommand(self.CMD["WRITE_REGISTER"], parameters, 0)
+        return await self._sendCommand(self.CMD["WRITE_REGISTER"], parameters, 0)
 
     """
     writeRegisterOrMask(self, address, orMask)
@@ -340,11 +338,13 @@ class PN5180_HIL(object):
     response : -
     """
 
-    def writeRegisterOrMask(self, address, orMask):
+    async def writeRegisterOrMask(self, address, orMask):
         parameters = []
         parameters.insert(0, address)
         parameters = parameters + self._toList(orMask)
-        return self._sendCommand(self.CMD["WRITE_REGISTER_OR_MASK"], parameters, 0)
+        return await self._sendCommand(
+            self.CMD["WRITE_REGISTER_OR_MASK"], parameters, 0
+        )
 
     """
     writeRegisterAndMask(self, address, andMask)
@@ -353,11 +353,13 @@ class PN5180_HIL(object):
     response : -
     """
 
-    def writeRegisterAndMask(self, address, andMask):
+    async def writeRegisterAndMask(self, address, andMask):
         parameters = []
         parameters.insert(0, address)
         parameters = parameters + self._toList(andMask)
-        return self._sendCommand(self.CMD["WRITE_REGISTER_AND_MASK"], parameters, 0)
+        return await self._sendCommand(
+            self.CMD["WRITE_REGISTER_AND_MASK"], parameters, 0
+        )
 
     """
     writeRegisterMultiple(self, address, parameter)
@@ -369,7 +371,7 @@ class PN5180_HIL(object):
     response : -
     """
 
-    def writeRegisterMultiple(self, address, parameterList):
+    async def writeRegisterMultiple(self, address, parameterList):
         parameters = []
         parameters.insert(0, address)
         for param in parameterList:
@@ -377,7 +379,9 @@ class PN5180_HIL(object):
             parameters.extend(param[1])
             parameters.extend(self._toList(param[2]))
 
-        return self._sendCommand(self.CMD["WRITE_REGISTER_AND_MASK"], parameters, 0)
+        return await self._sendCommand(
+            self.CMD["WRITE_REGISTER_AND_MASK"], parameters, 0
+        )
 
     """
     readRegister(self, address)
@@ -385,10 +389,10 @@ class PN5180_HIL(object):
     response : 4 bytes, register content 32-bit value (little endian).
     """
 
-    def readRegister(self, address):
+    async def readRegister(self, address):
         parameters = []
         parameters.insert(0, address)
-        regList = self._sendCommand(self.CMD["READ_REGISTER"], parameters, 4)
+        regList = await self._sendCommand(self.CMD["READ_REGISTER"], parameters, 4)
         return self._toInt32(regList)
 
     """
@@ -397,11 +401,11 @@ class PN5180_HIL(object):
     response : 4 to 72 bytes, register content 32-bit value (little endian).
     """
 
-    def readRegisterMultiple(self, addressList):
+    async def readRegisterMultiple(self, addressList):
         parameters = []
         for param in addressList:
             parameters.extend(param)
-        return self._sendCommand(
+        return await self._sendCommand(
             self.CMD["READ_REGISTER_MULTIPLE"], parameters, 4 * len(addressList)
         )
 
@@ -422,11 +426,11 @@ class PN5180_HIL(object):
     length : 1 byte, Number of bytes to read from EEPROM
     """
 
-    def readEeprom(self, address, length):
+    async def readEeprom(self, address, length):
         parameters = []
         parameters.insert(0, address)
         parameters.insert(1, length)
-        return self._sendCommand(self.CMD["READ_EEPROM"], parameters, length)
+        return await self._sendCommand(self.CMD["READ_EEPROM"], parameters, length)
 
     """
     writeData(self, parameterList)
@@ -434,11 +438,11 @@ class PN5180_HIL(object):
     response : -
     """
 
-    def writeData(self, parameterList):
+    async def writeData(self, parameterList):
         parameters = []
         for param in parameterList:
             parameters.extend(param)
-        return self._sendCommand(self.CMD["WRITE_DATA"], parameters, 0)
+        return await self._sendCommand(self.CMD["WRITE_DATA"], parameters, 0)
 
     """
     sendData(self, numberOfValidBits, parameterList)
@@ -447,12 +451,12 @@ class PN5180_HIL(object):
     response : -
     """
 
-    def sendData(self, numberOfValidBits, parameterList):
+    async def sendData(self, numberOfValidBits, parameterList):
         parameters = []
         parameters.insert(0, numberOfValidBits)
         for param in parameterList:
             parameters.append(param)
-        return self._sendCommand(self.CMD["SEND_DATA"], parameters, 0)
+        return await self._sendCommand(self.CMD["SEND_DATA"], parameters, 0)
 
     """
     readData(self, len)
@@ -460,10 +464,10 @@ class PN5180_HIL(object):
     response : 1 to 508 bytes read from Rx buffer
     """
 
-    def readData(self, len):
+    async def readData(self, len):
         parameters = []
         parameters.insert(0, 0)
-        return self._sendCommand(self.CMD["READ_DATA"], parameters, len)
+        return await self._sendCommand(self.CMD["READ_DATA"], parameters, len)
 
     """
     switchMode(self)
@@ -483,11 +487,11 @@ class PN5180_HIL(object):
     response : -
     """
 
-    def loadRfConfig(self, txCfg, rxCfg):
+    async def loadRfConfig(self, txCfg, rxCfg):
         parameters = []
         parameters.insert(0, txCfg)
         parameters.insert(1, rxCfg)
-        return self._sendCommand(self.CMD["LOAD_RF_CONFIG"], parameters, 0)
+        return await self._sendCommand(self.CMD["LOAD_RF_CONFIG"], parameters, 0)
 
     """
     rfOn(self, ctrl)
@@ -497,17 +501,17 @@ class PN5180_HIL(object):
     response : -
     """
 
-    def rfOn(self, ctrl):
+    async def rfOn(self, ctrl):
         parameters = []
         parameters.insert(0, ctrl)
-        return self._sendCommand(self.CMD["RF_ON"], parameters, 0)
+        return await self._sendCommand(self.CMD["RF_ON"], parameters, 0)
 
     """
     rfOff(self)
     response : -
     """
 
-    def rfOff(self):
+    async def rfOff(self):
         parameters = []
         parameters.insert(0, 0)
-        return self._sendCommand(self.CMD["RF_OFF"], parameters, 0)
+        return await self._sendCommand(self.CMD["RF_OFF"], parameters, 0)
