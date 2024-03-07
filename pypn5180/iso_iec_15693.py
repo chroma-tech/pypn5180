@@ -63,6 +63,9 @@ class iso_iec_15693(object):
         self.flags = 0x02
 
     async def start(self):
+        print("Running self test")
+        await self.pn5180.selfTest()
+        print("Configuring ISO_IEC_15693 mode")
         await self.pn5180.configureIsoIec15693Mode()
 
     """
