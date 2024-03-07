@@ -134,7 +134,7 @@ class PN5180(pypn5180hal.PN5180_HIL):
         self.sendData(8, command)
 
         # wait for RX to start with a shorter timeout
-        deadline = time.ticks_add(time.ticks_ms(), 5)
+        deadline = time.ticks_add(time.ticks_ms(), 2)
         irq_status = self.getIrqStatus()
         while (
             irq_status & self.IRQ_STATUS["RX_SOF_DET_IRQ_STAT"] == 0
