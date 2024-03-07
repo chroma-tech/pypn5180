@@ -133,8 +133,22 @@ class PN5180(pypn5180hal.PN5180_HIL):
 
         self.sendData(8, command)
 
+        # wait for RX to start with a shorter timeout
+        deadline = time.ticks_add(time.ticks_ms(), 5)
+        irq_status = self.getIrqStatus()
+        while (
+            irq_status & self.IRQ_STATUS["RX_SOF_DET_IRQ_STAT"] == 0
+        ) and time.ticks_diff(deadline, time.ticks_ms()) > 0:
+            irq_status = self.getIrqStatus()
+            time.sleep_ms(1)
+
+        # if RX didn't start, bail early
+        if irq_status & self.IRQ_STATUS["RX_SOF_DET_IRQ_STAT"] == 0:
+            self.setSystemCommand("COMMAND_IDLE_SET")
+            return 0xFF, []
+
         # wait for RX to complete
-        deadline = time.ticks_add(time.ticks_ms(), 100)
+        deadline = time.ticks_add(time.ticks_ms(), 50)
         irq_status = self.getIrqStatus()
         while (
             irq_status & self.IRQ_STATUS["RX_IRQ_STAT"] == 0
