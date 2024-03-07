@@ -88,12 +88,12 @@ class iso_iec_15693(object):
             return "Transaction ERROR: %s" % self.ERROR_CODE.get(data[0], str(data[0]))
         return "Transaction OK"
 
-    def inventoryCmd(self):
+    async def inventoryCmd(self):
         frame = []
         frame.insert(0, 0x26)  # flags for get inventory. get a single UID
         frame.insert(1, self.CMD_CODE["INVENTORY"])
         frame.insert(2, 0x00)  # mask length
-        flags, data = self.pn5180.transactionIsoIec15693(frame)
+        flags, data = await self.pn5180.transactionIsoIec15693(frame)
         if flags == 0 and len(data) < 9:
             flags = 0xFF
         if flags != 0:
@@ -102,13 +102,13 @@ class iso_iec_15693(object):
         format, uid = data[0], data[1:9]
         return uid, ""
 
-    def stayQuietCmd(self, uid):
+    async def stayQuietCmd(self, uid):
         frame = []
         frame.insert(0, self.flags | 0x20)
         frame.insert(1, self.CMD_CODE["STAY_QUIET"])
         frame.extend(uid)
 
-    def readSingleBlockCmd(self, blockNumber, uid=[]):
+    async def readSingleBlockCmd(self, blockNumber, uid=[]):
         frame = []
         frame.insert(0, self.flags)
         frame.insert(1, self.CMD_CODE["READ_SINGLE_BLOCK"])
@@ -116,14 +116,14 @@ class iso_iec_15693(object):
             frame[0] |= 0x20
             frame.extend(uid)
         frame.append(blockNumber)
-        flags, data = self.pn5180.transactionIsoIec15693(frame)
+        flags, data = await self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
         return data, error
 
     def disconnect(self):
         self.pn5180.rfOff()
 
-    def writeSingleBlockCmd(self, blockNumber, data, uid=[]):
+    async def writeSingleBlockCmd(self, blockNumber, data, uid=[]):
         #'21'
         frame = []
         frame.insert(0, self.flags)
@@ -133,11 +133,11 @@ class iso_iec_15693(object):
             frame.extend(uid)
         frame.append(blockNumber)
         frame.extend(data)
-        flags, data = self.pn5180.transactionIsoIec15693(frame)
+        flags, data = await self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
         return data, error
 
-    def lockBlockCmd(self, numberOfBlocks, uid=[]):
+    async def lockBlockCmd(self, numberOfBlocks, uid=[]):
         #'22'
         frame = []
         frame.insert(0, self.flags)
@@ -146,11 +146,11 @@ class iso_iec_15693(object):
             frame[0] |= 0x20
             frame.extend(uid)
         frame.append(numberOfBlocks)
-        flags, data = self.pn5180.transactionIsoIec15693(frame)
+        flags, data = await self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
         return data, error
 
-    def readMultipleBlocksCmd(self, firstBlockNumber, numberOfBlocks, uid=[]):
+    async def readMultipleBlocksCmd(self, firstBlockNumber, numberOfBlocks, uid=[]):
         frame = []
         frame.insert(0, self.flags)
         frame.insert(1, self.CMD_CODE["READ_MULTIPLE_BLOCK"])
@@ -159,11 +159,11 @@ class iso_iec_15693(object):
             frame.extend(uid)
         frame.append(firstBlockNumber)
         frame.append(numberOfBlocks)
-        flags, data = self.pn5180.transactionIsoIec15693(frame)
+        flags, data = await self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
         return data, error
 
-    def writeMultipleBlocksCmd(self, blockNumber, numBlocks, data, uid=[]):
+    async def writeMultipleBlocksCmd(self, blockNumber, numBlocks, data, uid=[]):
         frame = []
         frame.insert(0, self.flags)
         frame.insert(1, self.CMD_CODE["WRITE_MULTIPLE_BLOCK"])
@@ -178,22 +178,22 @@ class iso_iec_15693(object):
             f"WMB CMD. Offset block: {blockNumber} Num blocks: {numBlocks}. Data len: {len(data)}"
         )
 
-        flags, data = self.pn5180.transactionIsoIec15693(frame)
+        flags, data = await self.pn5180.transactionIsoIec15693(frame)
         print(f"Return from write. Flags: {flags}. Data: {data}")
         error = self.getError(flags, data)
         return data, error
 
-    def selectCmd(self, uid):
+    async def selectCmd(self, uid):
         #'25'
         frame = []
         frame.insert(0, self.flags | 0x20)
         frame.insert(1, self.CMD_CODE["SELECT"])
         frame.extend(uid)
-        flags, data = self.pn5180.transactionIsoIec15693(frame)
+        flags, data = await self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
         return data, error
 
-    def resetToReadyCmd(self, uid=[]):
+    async def resetToReadyCmd(self, uid=[]):
         #'26'
         frame = []
         frame.insert(0, self.flags)
@@ -201,11 +201,11 @@ class iso_iec_15693(object):
         if uid is not []:
             frame[0] |= 0x20
             frame.extend(uid)
-        flags, data = self.pn5180.transactionIsoIec15693(frame)
+        flags, data = await self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
         return data, error
 
-    def writeAfiCmd(self, afi, uid=[]):
+    async def writeAfiCmd(self, afi, uid=[]):
         # 27'
         frame = []
         frame.insert(0, self.flags)
@@ -214,11 +214,11 @@ class iso_iec_15693(object):
             frame[0] |= 0x20
             frame.extend(uid)
         frame.extend(afi)
-        flags, data = self.pn5180.transactionIsoIec15693(frame)
+        flags, data = await self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
         return data, error
 
-    def lockAfiCmd(self, uid=[]):
+    async def lockAfiCmd(self, uid=[]):
         #'28'
         frame = []
         frame.insert(0, self.flags)
@@ -226,11 +226,11 @@ class iso_iec_15693(object):
         if uid is not []:
             frame[0] |= 0x20
             frame.extend(uid)
-        flags, data = self.pn5180.transactionIsoIec15693(frame)
+        flags, data = await self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
         return data, error
 
-    def writeDsfidCmd(self, dsfid, uid=[]):
+    async def writeDsfidCmd(self, dsfid, uid=[]):
         #'29'
         frame = []
         frame.insert(0, self.flags)
@@ -239,11 +239,11 @@ class iso_iec_15693(object):
             frame[0] |= 0x20
             frame.extend(uid)
         frame.extend(dsfid)
-        flags, data = self.pn5180.transactionIsoIec15693(frame)
+        flags, data = await self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
         return data, error
 
-    def locckDsfidCmd(self, uid=[]):
+    async def locckDsfidCmd(self, uid=[]):
         #'2A'
         frame = []
         frame.insert(0, self.flags)
@@ -251,11 +251,11 @@ class iso_iec_15693(object):
         if uid is not []:
             frame[0] |= 0x20
             frame.extend(uid)
-        flags, data = self.pn5180.transactionIsoIec15693(frame)
+        flags, data = await self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
         return data, error
 
-    def getSystemInformationCmd(self, uid=[]):
+    async def getSystemInformationCmd(self, uid=[]):
         #'2B'
         frame = []
         frame.insert(0, self.flags)
@@ -263,7 +263,7 @@ class iso_iec_15693(object):
         if uid is not []:
             frame[0] |= 0x20
             frame.extend(uid)
-        flags, data = self.pn5180.transactionIsoIec15693(frame)
+        flags, data = await self.pn5180.transactionIsoIec15693(frame)
         if flags != 0:
             error = self.getError(flags, data)
             return "", error
@@ -288,7 +288,7 @@ class iso_iec_15693(object):
         )
         return TagInfo(dsfid, afi, num_blocks, block_size), ""
 
-    def getSystemInformationExtCmd(self, uid=[]):
+    async def getSystemInformationExtCmd(self, uid=[]):
         frame = []
         frame.insert(0, self.flags)
         frame.insert(1, self.CMD_CODE["GET_SYSTEM_INFORMATION_EXT"])
@@ -296,11 +296,11 @@ class iso_iec_15693(object):
         if uid is not []:
             frame[0] |= 0x20
             frame.extend(uid)
-        flags, data = self.pn5180.transactionIsoIec15693(frame)
+        flags, data = await self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
         return data, error
 
-    def getMultipleBlockSecurityStatusCmd(
+    async def getMultipleBlockSecurityStatusCmd(
         self, firstBlockNumber, numberOfBlocks, uid=[]
     ):
         #'2C'
@@ -312,11 +312,11 @@ class iso_iec_15693(object):
             frame.extend(uid)
         frame.append(firstBlockNumber)
         frame.append(numberOfBlocks)
-        flags, data = self.pn5180.transactionIsoIec15693(frame)
+        flags, data = await self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
         return data, error
 
-    def customCommand(self, cmdCode, mfCode, data):
+    async def customCommand(self, cmdCode, mfCode, data):
         # 'A0' - 'DF' Custom IC Mfg dependent
         # 'E0' - 'FF' Proprietary IC Mfg dependent
         frame = []
@@ -326,7 +326,7 @@ class iso_iec_15693(object):
         if data is not []:
             frame[0] |= 0x20
             frame.extend(data)
-        flags, data = self.pn5180.transactionIsoIec15693(frame)
+        flags, data = await self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
         return data, error
 
@@ -334,7 +334,7 @@ class iso_iec_15693(object):
     Note: firstBlockNumber: 2 bytes, LSB first
     """
 
-    def customReadSinlge(self, mfCode, firstBlockNumber, uid=[]):
+    async def customReadSinlge(self, mfCode, firstBlockNumber, uid=[]):
         frame = []
         frame.insert(0, self.flags)
         frame.insert(1, self.CMD_CODE["CUSTOM_READ_SINGLE"])
@@ -345,7 +345,7 @@ class iso_iec_15693(object):
         if len(firstBlockNumber) == 1:
             frame.extend(0)
         frame.extend(firstBlockNumber)
-        flags, data = self.pn5180.transactionIsoIec15693(frame)
+        flags, data = await self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
         return data, error
 
@@ -356,7 +356,7 @@ class iso_iec_15693(object):
     def customWriteSinlge(self, cmdCode, mfCode, firstBlockNumber, data, uid=[]):
         pass
 
-    def rfuCommand(self, cmdCode, data, uid=[]):
+    async def rfuCommand(self, cmdCode, data, uid=[]):
         frame = []
         frame.insert(0, self.flags)
         frame.insert(1, cmdCode)
@@ -364,6 +364,6 @@ class iso_iec_15693(object):
             frame[0] |= 0x20
             frame.extend(uid)
         frame.extend(map(ord, data))
-        flags, data = self.pn5180.transactionIsoIec15693(frame)
+        flags, data = await self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
         return data, error

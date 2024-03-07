@@ -121,7 +121,7 @@ class PN5180(pypn5180hal.PN5180_HIL):
     Perform RF transaction. Send command to the RFiD device and read device result.
     """
 
-    def transactionIsoIec15693(self, command):
+    async def transactionIsoIec15693(self, command):
         self.clearIrqStatus()
         self.setSystemCommand("COMMAND_TRANSCEIVE_SET")
 
@@ -134,7 +134,7 @@ class PN5180(pypn5180hal.PN5180_HIL):
         self.sendData(8, command)
 
         # wait for RX to start with a shorter timeout
-        deadline = time.ticks_add(time.ticks_ms(), 2)
+        deadline = time.ticks_add(time.ticks_ms(), 1)
         irq_status = self.getIrqStatus()
         while (
             irq_status & self.IRQ_STATUS["RX_SOF_DET_IRQ_STAT"] == 0
