@@ -61,16 +61,17 @@ class PN5180(pypn5180hal.PN5180_HIL):
     Display PN5180 chip versions (HW, SW)
     """
 
-    async def selfTest(self):
+    async def selfTest(self, verbose=False):
         # Get firmware version from EEPROM
         firmwareVersion = await self.getFirmwareVersion()
         productVersion = await self.getProductVersion()
         eepromVersion = await self.getEepromVersion()
         dieIdentifier = await self.getDieIdentifier()
-        print(" Firmware version: %#x" % firmwareVersion)
-        print(" Product Version : %#x" % productVersion)
-        print(" EEPROM version  : %#x" % eepromVersion)
-        print(" Die identifier  : %#r" % dieIdentifier)
+        if verbose:
+            print(" Firmware version: %#x" % firmwareVersion)
+            print(" Product Version : %#x" % productVersion)
+            print(" EEPROM version  : %#x" % eepromVersion)
+            print(" Die identifier  : %#r" % dieIdentifier)
 
     """
     dumpRegisters(self)

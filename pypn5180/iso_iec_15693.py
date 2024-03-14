@@ -61,11 +61,12 @@ class iso_iec_15693(object):
         # Bit 4 Protocol          0 No protocol format extension
         #       Extension_flag    1 Protocol format is extended. Reserved for future use
         self.flags = 0x02
+        print("init")
 
-    async def start(self):
-        print("Running self test")
-        await self.pn5180.selfTest()
-        print("Configuring ISO_IEC_15693 mode")
+    async def start(self, verbose=False):
+        print("start")
+        if verbose:
+            await self.pn5180.selfTest(verbose)
         await self.pn5180.configureIsoIec15693Mode()
 
     """
