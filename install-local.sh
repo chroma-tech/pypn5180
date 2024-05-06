@@ -1,0 +1,1 @@
+mpremote connect /dev/cu.usbmodem1234561 fs cp pypn5180/* :/lib/pypn5180/

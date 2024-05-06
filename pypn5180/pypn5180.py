@@ -98,7 +98,7 @@ class PN5180(pypn5180hal.PN5180_HIL):
     Soft reset, configure default parameters for Iso IEC 15693 and enable RF
     """
 
-    async def configureIsoIec15693Mode(self):
+    async def configureIsoIec15693Mode(self, highspeed=False):
         # TODO :
         #   - do a clean interface selector, not hard coded
         #   - Configure CRC registers
@@ -110,9 +110,14 @@ class PN5180(pypn5180hal.PN5180_HIL):
         # 'TX_ISO_15693_ASK10':0x0E,  # 26 kbps
         # 'RX_ISO_15693_53KBPS':0x8E  # 53 kbps
         #  }
-        await self.loadRfConfig(
-            self.RF_CFG["TX_ISO_15693_ASK100"], self.RF_CFG["RX_ISO_15693_26KBPS"]
-        )
+        if highspeed:
+            await self.loadRfConfig(
+                self.RF_CFG["TX_ISO_15693_ASK10"], self.RF_CFG["RX_ISO_15693_53KBPS"]
+            )
+        else:
+            await self.loadRfConfig(
+                self.RF_CFG["TX_ISO_15693_ASK100"], self.RF_CFG["RX_ISO_15693_26KBPS"]
+            )
         await self.rfOn(self.RF_ON_MODE["STANDARD"])
 
         # Set SYSTEM regsiter state machine to transceive

@@ -63,11 +63,11 @@ class iso_iec_15693(object):
         self.flags = 0x02
         print("init")
 
-    async def start(self, verbose=False):
+    async def start(self, verbose=False, highspeed=False):
         print("start")
         if verbose:
             await self.pn5180.selfTest(verbose)
-        await self.pn5180.configureIsoIec15693Mode()
+        await self.pn5180.configureIsoIec15693Mode(highspeed=highspeed)
 
     """
     configureFlags(self, flags)
@@ -88,6 +88,7 @@ class iso_iec_15693(object):
         if flags == 0xFF:
             return "Transaction ERROR: No Answer from tag"
         elif flags != 0:
+            print(flags, data)
             return "Transaction ERROR: %s" % self.ERROR_CODE.get(data[0], str(data[0]))
         return "Transaction OK"
 
