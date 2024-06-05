@@ -26,6 +26,7 @@ class iso_iec_15693(object):
         "GET_SYSTEM_INFORMATION": 0x2B,
         "GET_MULTIPLE_BLOCK_SECURITY_STATUS": 0x2C,
         "GET_SYSTEM_INFORMATION_EXT": 0x3B,
+        "WRITE_MESSAGE": 0xAA,
         "CUSTOM_READ_SINGLE": 0xC0,
         "CUSTOM_WRITE_SINGLE": 0xC1,
         "CUSTOM_LOCK_BLOCK": 0xC2,
@@ -300,6 +301,26 @@ class iso_iec_15693(object):
         if uid is not []:
             frame[0] |= 0x20
             frame.extend(uid)
+        flags, data = await self.pn5180.transactionIsoIec15693(frame)
+        error = self.getError(flags, data)
+        return data, error
+
+    async def writeMessageCmd(self, data, uid=[]):
+        if len(data) > 256:
+            return None, "Data too long"
+
+        data = data.encode("utf-8")
+
+        #'AA'
+        frame = []
+        frame.insert(0, self.flags)
+        frame.insert(1, self.CMD_CODE["WRITE_MESSAGE"])
+        frame.insert(2, 0x02)  # IC Mfg code
+        if uid is not []:
+            frame[0] |= 0x20
+            frame.extend(uid)
+        frame.append(len(data) - 1)
+        frame.extend(data)
         flags, data = await self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
         return data, error
