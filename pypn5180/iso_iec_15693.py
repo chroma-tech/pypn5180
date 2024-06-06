@@ -27,6 +27,8 @@ class iso_iec_15693(object):
         "GET_MULTIPLE_BLOCK_SECURITY_STATUS": 0x2C,
         "GET_SYSTEM_INFORMATION_EXT": 0x3B,
         "WRITE_MESSAGE": 0xAA,
+        "READ_DYNAMIC_CONFIGURATION": 0xAD,
+        "WRITE_DYNAMIC_CONFIGURATION": 0xAE,
         "CUSTOM_READ_SINGLE": 0xC0,
         "CUSTOM_WRITE_SINGLE": 0xC1,
         "CUSTOM_LOCK_BLOCK": 0xC2,
@@ -321,6 +323,21 @@ class iso_iec_15693(object):
             frame.extend(uid)
         frame.append(len(data) - 1)
         frame.extend(data)
+        flags, data = await self.pn5180.transactionIsoIec15693(frame)
+        error = self.getError(flags, data)
+        return data, error
+
+    async def writeDynamicConfigurationCmd(self, register, value, uid=[]):
+        #'AE'
+        frame = []
+        frame.insert(0, self.flags)
+        frame.insert(1, self.CMD_CODE["WRITE_DYNAMIC_CONFIGURATION"])
+        frame.insert(2, 0x02)  # IC Mfg code
+        if uid is not []:
+            frame[0] |= 0x20
+            frame.extend(uid)
+        frame.append(register)
+        frame.append(value)
         flags, data = await self.pn5180.transactionIsoIec15693(frame)
         error = self.getError(flags, data)
         return data, error
